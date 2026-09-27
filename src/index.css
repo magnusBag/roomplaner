@@ -1,0 +1,72 @@
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+body { font: 13px/1.4 system-ui, sans-serif; color: #1f2430; background: #f6f7f9; }
+button, select, input, summary { font: inherit; }
+button, summary {
+  border: 1px solid #cfd4dc; background: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; color: inherit;
+}
+button:hover:not(:disabled), summary:hover { background: #eef2f8; }
+button:disabled { opacity: .45; cursor: default; }
+button.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+button.danger { color: #b91c1c; border-color: #f0c4c4; }
+input, select { border: 1px solid #cfd4dc; border-radius: 6px; padding: 4px 6px; background: #fff; min-width: 0; }
+kbd { font-size: 10px; opacity: .6; margin-left: 4px; }
+h3 { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #667; }
+.hint { color: #667; margin: 0 0 6px; font-size: 12px; }
+
+.app { display: grid; height: 100%; grid-template: 'h h h' auto 'l m r' 1fr / 190px 1fr 250px; }
+header { grid-area: h; display: flex; gap: 6px; align-items: center; padding: 6px 10px; border-bottom: 1px solid #dde1e7; background: #fff; }
+header .logo { margin-right: 6px; }
+header .name { width: 180px; }
+header .spacer { flex: 1; }
+aside { overflow: auto; padding: 4px 10px 12px; background: #fff; }
+aside.left { grid-area: l; border-right: 1px solid #dde1e7; }
+aside.right { grid-area: r; border-left: 1px solid #dde1e7; }
+aside section > button { display: block; width: 100%; margin-top: 6px; }
+main { grid-area: m; display: flex; min-width: 0; min-height: 0; }
+.pane { position: relative; flex: 1; min-width: 0; border-right: 1px solid #dde1e7; }
+.pane:last-child { border-right: 0; }
+
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.catalog { display: flex; flex-direction: column; gap: 3px; }
+.catalog button { text-align: left; display: flex; align-items: center; gap: 6px; padding: 3px 8px; }
+.catalog small { margin-left: auto; color: #889; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid #0002; flex: none; }
+
+.field { display: grid; grid-template-columns: 1fr 90px; align-items: center; gap: 6px; margin: 4px 0; }
+.field span { color: #556; }
+.calibrate { margin-top: 10px; padding-top: 6px; border-top: 1px dashed #dde1e7; }
+.calibrate button { width: 100%; }
+.rooms { padding: 0; list-style: none; }
+.rooms li { display: flex; justify-content: space-between; align-items: center; margin: 3px 0; }
+.rooms button { border: 0; padding: 0; text-decoration: underline; background: none; }
+
+.notice { position: relative; background: #fffbea; border: 1px solid #f1e3a4; border-radius: 6px; padding: 8px; margin-top: 10px; }
+.notice pre { margin: 0; white-space: pre-wrap; font: 12px/1.4 system-ui, sans-serif; }
+.notice .close { position: absolute; top: 2px; right: 2px; border: 0; background: none; padding: 0 6px; }
+
+.menu { position: relative; }
+.menu summary { list-style: none; }
+.menu-items { position: absolute; z-index: 10; top: 110%; left: 0; background: #fff; border: 1px solid #cfd4dc; border-radius: 8px;
+  box-shadow: 0 6px 20px #0002; padding: 4px; display: flex; flex-direction: column; min-width: 190px; }
+.menu-items button { border: 0; text-align: left; }
+.menu-items hr { border: 0; border-top: 1px solid #eee; margin: 4px 0; width: 100%; }
+
+.editor2d { width: 100%; height: 100%; display: block; background: #fbfcfd; touch-action: none; user-select: none; }
+.editor2d[data-tool='wall'], .editor2d[data-tool='room'], .editor2d[data-tool='measure'],
+.editor2d[data-tool='door'], .editor2d[data-tool='window'] { cursor: crosshair; }
+.hintbar { position: absolute; bottom: 0; left: 0; right: 0; padding: 4px 10px; font-size: 12px; color: #556; background: #fffd; border-top: 1px solid #eee; pointer-events: none; }
+.empty { position: absolute; inset: 0; margin: auto; width: 320px; height: 120px; text-align: center; background: #fff;
+  border: 1px solid #dde1e7; border-radius: 10px; padding: 14px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-content: center; }
+.empty p { width: 100%; margin: 0 0 4px; }
+
+.view3d { position: absolute; inset: 0; }
+.view3d-bar { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; align-items: center; }
+.view3d-bar span { background: #fffd; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+
+@media (max-width: 900px) {
+  .app { grid-template: 'h' auto 'm' 1fr 'l' auto 'r' auto / 1fr; overflow: auto; }
+  header { flex-wrap: wrap; }
+  main { min-height: 60vh; flex-direction: column; }
+  .pane { border-right: 0; border-bottom: 1px solid #dde1e7; }
+}
