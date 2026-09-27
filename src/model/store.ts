@@ -14,9 +14,11 @@ interface State {
   projectName: string;
   /** Bumped on every load so views can re-fit. */
   loadCount: number;
+  /** Snapshot taken by `begin`, pushed to history on the first `live` change. */
+  pending: Plan | null;
   /** Replace the plan as one undoable step. */
   commit: (fn: (p: Plan) => Plan) => void;
-  /** Start a continuous edit (e.g. a drag): records one undo step, then use `live` for updates. */
+  /** Start a continuous edit (e.g. a drag); the first `live` update records one undo step. */
   begin: () => void;
   live: (fn: (p: Plan) => Plan) => void;
   undo: () => void;
@@ -40,21 +42,24 @@ export const useStore = create<State>((set, get) => ({
   projectId: null,
   projectName: 'Untitled',
   loadCount: 0,
-  commit: fn => set(s => ({ past: [...s.past, s.plan].slice(-LIMIT), future: [], plan: fn(s.plan) })),
-  begin: () => set(s => ({ past: [...s.past, s.plan].slice(-LIMIT), future: [] })),
-  live: fn => set(s => ({ plan: fn(s.plan) })),
+  pending: null,
+  commit: fn => set(s => ({ past: [...s.past, s.plan].slice(-LIMIT), future: [], plan: fn(s.plan), pending: null })),
+  begin: () => set(s => ({ pending: s.plan })),
+  live: fn => set(s => (s.pending
+    ? { past: [...s.past, s.pending].slice(-LIMIT), future: [], pending: null, plan: fn(s.plan) }
+    : { plan: fn(s.plan) })),
   undo: () => {
     const { past, plan, future } = get();
     if (!past.length) return;
-    set({ plan: past[past.length - 1], past: past.slice(0, -1), future: [plan, ...future], selection: null });
+    set({ plan: past[past.length - 1], past: past.slice(0, -1), future: [plan, ...future], selection: null, pending: null });
   },
   redo: () => {
     const { past, plan, future } = get();
     if (!future.length) return;
-    set({ plan: future[0], future: future.slice(1), past: [...past, plan], selection: null });
+    set({ plan: future[0], future: future.slice(1), past: [...past, plan], selection: null, pending: null });
   },
   load: (plan, projectId, projectName) =>
-    set(s => ({ plan, projectId, projectName, past: [], future: [], selection: null, loadCount: s.loadCount + 1 })),
+    set(s => ({ plan, projectId, projectName, past: [], future: [], selection: null, pending: null, loadCount: s.loadCount + 1 })),
   select: selection => set({ selection }),
   setTool: tool => set({ tool, selection: null }),
   setName: projectName => set({ projectName }),

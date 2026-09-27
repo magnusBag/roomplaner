@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStore, patchItem, removeSelection, type Tool } from './model/store';
-import { type Plan, type Wall, emptyPlan, uid, wallLength, area, scalePlan, add, mul, sub, dist, planBounds } from './model/types';
+import { type Plan, type Wall, emptyPlan, uid, wallLength, area, scalePlan, add, mul, sub, dist, planBounds, DEFAULT_WALL_COLOR } from './model/types';
 import { redetectRooms } from './model/rooms';
 import { importDxf, inspectDxf } from './import/dxf';
 import { catalog, byId } from './catalog/catalog';
@@ -245,6 +245,16 @@ function Num({ label, value, onChange, step = 0.01, min }: { label: string; valu
   );
 }
 
+/** Colour picker that updates live while picking but records a single undo step. */
+function ColorField({ value, onChange }: { value: string; onChange: (c: string) => (p: Plan) => Plan }) {
+  const { begin, live } = useStore();
+  return (
+    <label className="field"><span>Colour</span>
+      <input type="color" value={value} onFocus={begin} onChange={e => live(onChange(e.target.value))} />
+    </label>
+  );
+}
+
 function Properties() {
   const { plan, selection, commit, select } = useStore();
   const del = selection && <button className="danger" onClick={() => { commit(removeSelection(selection)); select(null); }}>Delete</button>;
@@ -258,6 +268,8 @@ function Properties() {
         <h3>Wall</h3>
         <Num label="Length (m)" value={L} min={0.05} onChange={v => commit(setWallLength(w, v))} />
         <Num label="Thickness (m)" value={w.thickness} min={0.01} onChange={v => commit(patchItem('walls', w.id, { thickness: v }))} />
+        <ColorField key={w.id} value={w.color ?? DEFAULT_WALL_COLOR} onChange={color => patchItem('walls', w.id, { color })} />
+        <button onClick={() => commit(p => ({ ...p, walls: p.walls.map(x => ({ ...x, color: w.color })) }))}>Apply colour to all walls</button>
         <Num label="Height (m)" value={w.height} min={0.1} onChange={v => commit(patchItem('walls', w.id, { height: v }))} />
         <Calibrate length={L} />
         {del}
@@ -296,9 +308,7 @@ function Properties() {
         <label className="field"><span>Name</span>
           <input key={r.id} defaultValue={r.name} onBlur={e => e.target.value !== r.name && commit(patchItem('rooms', r.id, { name: e.target.value }))} />
         </label>
-        <label className="field"><span>Colour</span>
-          <input type="color" value={r.color ?? '#dbe8f5'} onChange={e => commit(patchItem('rooms', r.id, { color: e.target.value }))} />
-        </label>
+        <ColorField key={r.id} value={r.color ?? '#dbe8f5'} onChange={color => patchItem('rooms', r.id, { color })} />
         <p>Area: <b>{area(r.polygon).toFixed(2)} m²</b></p>
         {del}
       </section>

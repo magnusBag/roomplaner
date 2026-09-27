@@ -1,6 +1,7 @@
 export type Vec2 = { x: number; y: number }; // metres, y points "down" (screen convention)
 
-export interface Wall { id: string; a: Vec2; b: Vec2; thickness: number; height: number }
+export const DEFAULT_WALL_COLOR = '#f4f1ea';
+export interface Wall { id: string; a: Vec2; b: Vec2; thickness: number; height: number; color?: string }
 export interface Opening {
   id: string; wallId: string; kind: 'door' | 'window';
   offset: number; // distance from wall.a to the opening's start

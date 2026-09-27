@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { useStore } from '../model/store';
 import { wallBoxes, pieceToBox, type Box } from './meshes';
 import { byId } from '../catalog/catalog';
-import { type Room, planBounds } from '../model/types';
+import { type Room, planBounds, DEFAULT_WALL_COLOR } from '../model/types';
 
 function BoxMesh({ b, color, opacity = 1, onClick }: { b: Box; color: string; opacity?: number; onClick?: () => void }) {
   return (
@@ -55,6 +55,7 @@ export function View3D() {
   const { plan, selection, select, loadCount } = useStore();
   const [mode, setMode] = useState<'orbit' | 'walk'>('orbit');
   const boxes = useMemo(() => wallBoxes(plan), [plan]);
+  const wallColor = new Map(plan.walls.map(w => [w.id, w.color ?? DEFAULT_WALL_COLOR]));
   const { min, max } = planBounds(plan);
   const center: [number, number, number] = [(min.x + max.x) / 2, 0, (min.y + max.y) / 2];
   const size = Math.max(max.x - min.x, max.y - min.y, 4);
@@ -87,7 +88,7 @@ export function View3D() {
         {plan.rooms.map(r => <Floor key={r.id} room={r} selected={isSel('room', r.id)} />)}
 
         {boxes.map((b, i) => (
-          <BoxMesh key={i} b={b} color={isSel('wall', b.wallId) ? '#7aa7f7' : '#f4f1ea'} onClick={() => select({ type: 'wall', id: b.wallId })} />
+          <BoxMesh key={i} b={b} color={isSel('wall', b.wallId) ? '#7aa7f7' : wallColor.get(b.wallId)!} onClick={() => select({ type: 'wall', id: b.wallId })} />
         ))}
         {glass.map((b, i) => <BoxMesh key={`g${i}`} b={b} color="#9fd3ff" opacity={0.35} />)}
 
