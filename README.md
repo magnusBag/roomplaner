@@ -9,6 +9,10 @@ npm test        # vitest: DXF normalizer + 3D wall splitting
 npm run build
 ```
 
+## Deploying
+
+`.github/workflows/deploy.yml` tests, builds and publishes to GitHub Pages on every push to `main` (or run it manually from the Actions tab). One-time setup: **Settings → Pages → Source: GitHub Actions**. The site is then served at `https://<owner>.github.io/<repo>/`.
+
 ## How it works
 
 DXF is an **import format only**. `src/import/dxf.ts` converts it once into the `Plan` model (`src/model/types.ts`: walls, openings, rooms, furniture). The 2D editor and 3D view both render from that model.
