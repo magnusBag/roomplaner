@@ -18,3 +18,11 @@ export const catalog: CatalogItem[] = [
 ];
 
 export const byId = (id: string) => catalog.find(c => c.id === id) ?? catalog[0];
+
+/** Catalog item with this placement's overrides (size, corner radius, colour) applied. */
+export const itemOf = (f: { catalogId: string; w?: number; d?: number; h?: number; radius?: number; color?: string }) => {
+  const c = byId(f.catalogId);
+  const w = f.w ?? c.w, d = f.d ?? c.d;
+  // radius is clamped so a square item at max radius becomes a circle
+  return { ...c, w, d, h: f.h ?? c.h, r: Math.min(f.radius ?? 0, w / 2, d / 2), color: f.color ?? c.color };
+};

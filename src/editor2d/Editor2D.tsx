@@ -3,7 +3,7 @@ import { useStore, patchItem } from '../model/store';
 import {
   type Vec2, type Wall, type Plan, uid, add, sub, mul, dist, project, wallLength, area, centroid, planBounds,
 } from '../model/types';
-import { byId } from '../catalog/catalog';
+import { itemOf } from '../catalog/catalog';
 
 /** The live SVG element, for PNG/SVG export. */
 export const svgRef: { current: SVGSVGElement | null } = { current: null };
@@ -11,6 +11,8 @@ export const svgRef: { current: SVGSVGElement | null } = { current: null };
 type Drag =
   | { kind: 'pan'; start: Vec2; tx: number; ty: number }
   | { kind: 'furniture'; id: string; grab: Vec2 }
+  | { kind: 'rotate'; id: string; center: Vec2; startAngle: number; startRot: number }
+  | { kind: 'resize'; id: string; center: Vec2; rotation: number }
   | { kind: 'endpoint'; targets: { id: string; end: 'a' | 'b' }[]; anchor: Vec2 }
   | { kind: 'wall'; start: Vec2; orig: Plan; ends: { id: string; end: 'a' | 'b' }[] }
   | { kind: 'opening'; id: string; wall: Wall; grab: number };
@@ -18,6 +20,8 @@ type Drag =
 const SNAP_PX = 12;
 const ANGLE_SNAP = Math.tan((5 * Math.PI) / 180);
 const fmt = (m: number) => `${m.toFixed(2)} m`;
+/** Clockwise-positive angle in degrees (y-down), matching SVG rotate(). */
+const angleDeg = (c: Vec2, p: Vec2) => (Math.atan2(p.y - c.y, p.x - c.x) * 180) / Math.PI;
 
 export function Editor2D() {
   const { plan, tool, selection, loadCount, select, commit, begin, live } = useStore();
@@ -25,6 +29,7 @@ export function Editor2D() {
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
   const drag = useRef<Drag | null>(null);
+  const rHeld = useRef(false);
   const el = useRef<SVGSVGElement>(null);
 
   const fit = () => {
@@ -59,9 +64,18 @@ export function Editor2D() {
       if (e.key === 'Escape') setDraft([]);
       if (e.key === 'Enter' && tool === 'room') closeRoom();
       if (e.key === 'f') fit();
+      if (e.key === 'r') rHeld.current = true;
     };
+    const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'r') rHeld.current = false; };
+    const onBlur = () => { rHeld.current = false; };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
   });
 
   const toWorld = (e: { clientX: number; clientY: number }): Vec2 => {
@@ -159,6 +173,17 @@ export function Editor2D() {
     if (!d) return;
     if (d.kind === 'pan') setView(v => ({ ...v, tx: d.tx + e.clientX - d.start.x, ty: d.ty + e.clientY - d.start.y }));
     else if (d.kind === 'furniture') live(patchItem('furniture', d.id, { pos: sub(w, d.grab) }));
+    else if (d.kind === 'rotate') {
+      let r = d.startRot + angleDeg(d.center, w) - d.startAngle;
+      if (!e.altKey) r = Math.round(r / 15) * 15; // Alt for free rotation
+      live(patchItem('furniture', d.id, { rotation: ((r % 360) + 360) % 360 }));
+    } else if (d.kind === 'resize') {
+      // pointer in the item's local (unrotated) frame; the centre stays put, so size = 2 × offset
+      const a = (d.rotation * Math.PI) / 180, v = sub(w, d.center);
+      const lx = v.x * Math.cos(a) + v.y * Math.sin(a), ly = -v.x * Math.sin(a) + v.y * Math.cos(a);
+      const q = (n: number) => Math.max(0.1, e.altKey ? n : Math.round(n / 0.05) * 0.05); // 5 cm steps; Alt for free
+      live(patchItem('furniture', d.id, { w: q(2 * Math.abs(lx)), d: q(2 * Math.abs(ly)) }));
+    }
     else if (d.kind === 'endpoint') {
       const p = snap(w, e, d.anchor, d.targets);
       live(pl => d.targets.reduce((acc, t) => patchItem('walls', t.id, { [t.end]: p })(acc), pl));
@@ -284,19 +309,26 @@ export function Editor2D() {
         })}
 
         {plan.furniture.map(f => {
-          const c = byId(f.catalogId);
+          const c = itemOf(f);
           const on = sel('furniture', f.id);
           return (
             <g key={f.id} transform={`translate(${f.pos.x} ${f.pos.y}) rotate(${f.rotation})`}
               onPointerDown={grab((e, p) => {
                 select({ type: 'furniture', id: f.id });
-                startDrag(e, { kind: 'furniture', id: f.id, grab: sub(p, f.pos) });
+                startDrag(e, rHeld.current
+                  ? { kind: 'rotate', id: f.id, center: f.pos, startAngle: angleDeg(f.pos, p), startRot: f.rotation }
+                  : { kind: 'furniture', id: f.id, grab: sub(p, f.pos) });
               })}>
-              <rect x={-c.w / 2} y={-c.d / 2} width={c.w} height={c.d} fill={c.color} fillOpacity={0.85}
+              <rect x={-c.w / 2} y={-c.d / 2} width={c.w} height={c.d} rx={c.r} fill={c.color} fillOpacity={0.85}
                 stroke={on ? '#2563eb' : '#333'} strokeWidth={px(on ? 2.5 : 1)} />
               {/* front edge marker */}
-              <line x1={-c.w / 2} y1={c.d / 2} x2={c.w / 2} y2={c.d / 2} stroke="#000" strokeWidth={px(2.5)} />
+              <line x1={-c.w / 2 + c.r} y1={c.d / 2} x2={c.w / 2 - c.r} y2={c.d / 2} stroke="#000" strokeWidth={px(2.5)} />
               <text y={px(4)} fontSize={px(10)} textAnchor="middle" fill="#111" fontFamily="sans-serif" pointerEvents="none">{c.name}</text>
+              {on && (
+                <rect data-noexport x={c.w / 2 - px(5)} y={c.d / 2 - px(5)} width={px(10)} height={px(10)}
+                  fill="#fff" stroke="#2563eb" strokeWidth={px(2)} style={{ cursor: 'nwse-resize' }}
+                  onPointerDown={grab(e => startDrag(e, { kind: 'resize', id: f.id, center: f.pos, rotation: f.rotation }))} />
+              )}
             </g>
           );
         })}

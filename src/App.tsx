@@ -1,9 +1,9 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStore, patchItem, removeSelection, type Tool } from './model/store';
-import { type Plan, type Wall, emptyPlan, uid, wallLength, area, scalePlan, add, mul, sub, dist, planBounds } from './model/types';
+import { type Plan, type Wall, emptyPlan, uid, wallLength, area, scalePlan, add, mul, sub, dist, planBounds, DEFAULT_WALL_COLOR } from './model/types';
 import { redetectRooms } from './model/rooms';
 import { importDxf, inspectDxf } from './import/dxf';
-import { catalog, byId } from './catalog/catalog';
+import { catalog, itemOf } from './catalog/catalog';
 import { Editor2D, svgRef } from './editor2d/Editor2D';
 
 const View3D = lazy(() => import('./view3d/View3D').then(m => ({ default: m.View3D })));
@@ -21,7 +21,7 @@ const TOOLS: { id: Tool; label: string; key: string }[] = [
   { id: 'measure', label: 'Measure', key: 'm' },
 ];
 const HINTS: Record<Tool, string> = {
-  select: 'Drag items to move · drag wall ends to reshape · Del deletes · R rotates furniture · drag empty space to pan',
+  select: 'Drag items to move · drag wall ends to reshape · Del deletes · hold R + drag rotates furniture · corner handle resizes · drag empty space to pan',
   wall: 'Click to start, click to add segments · double-click or Esc to finish · Alt disables snapping',
   door: 'Click on a wall to add a door',
   window: 'Click on a wall to add a window',
@@ -69,11 +69,6 @@ export default function App() {
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); st.redo(); return; }
       if (mod) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && st.selection) { st.commit(removeSelection(st.selection)); st.select(null); return; }
-      if (e.key === 'r' && st.selection?.type === 'furniture') {
-        const f = st.plan.furniture.find(x => x.id === st.selection!.id)!;
-        st.commit(patchItem('furniture', f.id, { rotation: (f.rotation + (e.shiftKey ? -90 : 90) + 360) % 360 }));
-        return;
-      }
       if (e.key === 'Escape') { st.setTool('select'); return; }
       const t = TOOLS.find(t => t.key === e.key);
       if (t && layout !== '3d') st.setTool(t.id);
@@ -250,8 +245,18 @@ function Num({ label, value, onChange, step = 0.01, min }: { label: string; valu
   );
 }
 
+/** Colour picker that updates live while picking but records a single undo step. */
+function ColorField({ value, onChange }: { value: string; onChange: (c: string) => (p: Plan) => Plan }) {
+  const { begin, live } = useStore();
+  return (
+    <label className="field"><span>Colour</span>
+      <input type="color" value={value} onFocus={begin} onChange={e => live(onChange(e.target.value))} />
+    </label>
+  );
+}
+
 function Properties() {
-  const { plan, selection, commit, select } = useStore();
+  const { plan, selection, commit, select, begin, live } = useStore();
   const del = selection && <button className="danger" onClick={() => { commit(removeSelection(selection)); select(null); }}>Delete</button>;
 
   if (selection?.type === 'wall') {
@@ -263,6 +268,8 @@ function Properties() {
         <h3>Wall</h3>
         <Num label="Length (m)" value={L} min={0.05} onChange={v => commit(setWallLength(w, v))} />
         <Num label="Thickness (m)" value={w.thickness} min={0.01} onChange={v => commit(patchItem('walls', w.id, { thickness: v }))} />
+        <ColorField key={w.id} value={w.color ?? DEFAULT_WALL_COLOR} onChange={color => patchItem('walls', w.id, { color })} />
+        <button onClick={() => commit(p => ({ ...p, walls: p.walls.map(x => ({ ...x, color: w.color })) }))}>Apply colour to all walls</button>
         <Num label="Height (m)" value={w.height} min={0.1} onChange={v => commit(patchItem('walls', w.id, { height: v }))} />
         <Calibrate length={L} />
         {del}
@@ -301,9 +308,7 @@ function Properties() {
         <label className="field"><span>Name</span>
           <input key={r.id} defaultValue={r.name} onBlur={e => e.target.value !== r.name && commit(patchItem('rooms', r.id, { name: e.target.value }))} />
         </label>
-        <label className="field"><span>Colour</span>
-          <input type="color" value={r.color ?? '#dbe8f5'} onChange={e => commit(patchItem('rooms', r.id, { color: e.target.value }))} />
-        </label>
+        <ColorField key={r.id} value={r.color ?? '#dbe8f5'} onChange={color => patchItem('rooms', r.id, { color })} />
         <p>Area: <b>{area(r.polygon).toFixed(2)} m²</b></p>
         {del}
       </section>
@@ -312,21 +317,32 @@ function Properties() {
   if (selection?.type === 'furniture') {
     const f = plan.furniture.find(x => x.id === selection.id);
     if (!f) return null;
-    const c = byId(f.catalogId);
+    const c = itemOf(f);
     const set = (patch: Partial<typeof f>) => commit(patchItem('furniture', f.id, patch));
+    const resized = f.w != null || f.d != null || f.h != null;
     return (
       <section>
         <h3>{c.name}</h3>
-        <p className="hint">{c.w} × {c.d} × {c.h} m</p>
         <label className="field"><span>Item</span>
-          <select value={f.catalogId} onChange={e => set({ catalogId: e.target.value })}>
+          <select value={f.catalogId} onChange={e => set({ catalogId: e.target.value, w: undefined, d: undefined, h: undefined, radius: undefined })}>
             {catalog.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
           </select>
         </label>
+        <Num label="Width (m)" value={c.w} min={0.05} onChange={v => set({ w: v })} />
+        <Num label="Depth (m)" value={c.d} min={0.05} onChange={v => set({ d: v })} />
+        <Num label="Height (m)" value={c.h} min={0.05} onChange={v => set({ h: v })} />
+        <ColorField key={f.id} value={c.color} onChange={color => patchItem('furniture', f.id, { color })} />
+        {f.color && <button onClick={() => set({ color: undefined })}>Reset colour</button>}
+        <label className="field" title="All the way right makes the ends fully round (a circle for square items)">
+          <span>Corner radius <small>{Math.round(c.r * 100)} cm</small></span>
+          <input type="range" min={0} max={Math.min(c.w, c.d) / 2} step={0.01} value={c.r}
+            onFocus={begin} onChange={e => live(patchItem('furniture', f.id, { radius: +e.target.value }))} />
+        </label>
+        {resized && <button onClick={() => set({ w: undefined, d: undefined, h: undefined })}>Reset to catalog size</button>}
         <Num label="Rotation (°)" value={f.rotation} step={15} onChange={v => set({ rotation: ((v % 360) + 360) % 360 })} />
         <Num label="X (m)" value={f.pos.x} onChange={v => set({ pos: { ...f.pos, x: v } })} />
         <Num label="Y (m)" value={f.pos.y} onChange={v => set({ pos: { ...f.pos, y: v } })} />
-        <button onClick={() => set({ rotation: (f.rotation + 90) % 360 })}>Rotate 90° (R)</button>
+        <button onClick={() => set({ rotation: (f.rotation + 90) % 360 })}>Rotate 90°</button>
         {del}
       </section>
     );

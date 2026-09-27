@@ -9,6 +9,10 @@ npm test        # vitest: DXF normalizer + 3D wall splitting
 npm run build
 ```
 
+## Deploying
+
+`.github/workflows/deploy.yml` tests, builds and publishes to GitHub Pages on every push to `main` (or run it manually from the Actions tab). One-time setup: **Settings → Pages → Source: GitHub Actions**. The site is then served at `https://<owner>.github.io/<repo>/`.
+
 ## How it works
 
 DXF is an **import format only**. `src/import/dxf.ts` converts it once into the `Plan` model (`src/model/types.ts`: walls, openings, rooms, furniture). The 2D editor and 3D view both render from that model.
@@ -28,7 +32,8 @@ Import pipeline (pure functions, tested against `fixtures/sample.dxf`):
 |---|---|
 | V W D N G M | Select, Wall, Door, Window, Room, Measure tools |
 | Del / Backspace | Delete selection |
-| R / Shift+R | Rotate furniture ±90° |
+| Hold R + drag furniture | Rotate (15° steps; add Alt for free rotation) |
+| Drag a selected item's corner handle | Resize (5 cm steps; add Alt for free size) |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo |
 | F | Fit plan to view |
 | Alt (while drawing or dragging) | Disable snapping |

@@ -4,8 +4,8 @@ import { OrbitControls, PointerLockControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useStore } from '../model/store';
 import { wallBoxes, pieceToBox, type Box } from './meshes';
-import { byId } from '../catalog/catalog';
-import { type Room, planBounds } from '../model/types';
+import { itemOf } from '../catalog/catalog';
+import { type Room, planBounds, DEFAULT_WALL_COLOR } from '../model/types';
 
 function BoxMesh({ b, color, opacity = 1, onClick }: { b: Box; color: string; opacity?: number; onClick?: () => void }) {
   return (
@@ -14,6 +14,31 @@ function BoxMesh({ b, color, opacity = 1, onClick }: { b: Box; color: string; op
       <boxGeometry args={b.size} />
       <meshStandardMaterial color={color} transparent={opacity < 1} opacity={opacity} />
     </mesh>
+  );
+}
+
+/** Box with rounded vertical edges: a rounded rectangle extruded upwards (matches the 2D outline). */
+function RoundedMesh({ w, d, h, r, color, onClick, ...t }: {
+  w: number; d: number; h: number; r: number; color: string; onClick: () => void;
+  position: [number, number, number]; rotationY: number;
+}) {
+  const geom = useMemo(() => {
+    const x = w / 2 - r, y = d / 2 - r, s = new THREE.Shape();
+    s.moveTo(-x, -d / 2);
+    s.lineTo(x, -d / 2); s.absarc(x, -y, r, -Math.PI / 2, 0, false);
+    s.lineTo(w / 2, y); s.absarc(x, y, r, 0, Math.PI / 2, false);
+    s.lineTo(-x, d / 2); s.absarc(-x, y, r, Math.PI / 2, Math.PI, false);
+    s.lineTo(-w / 2, -y); s.absarc(-x, -y, r, Math.PI, Math.PI * 1.5, false);
+    return new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 12 });
+  }, [w, d, h, r]);
+  return (
+    <group position={t.position} rotation={[0, t.rotationY, 0]}>
+      {/* extrusion runs along +Z; tip it up so it runs along +Y */}
+      <mesh geometry={geom} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow
+        onClick={e => { e.stopPropagation(); onClick(); }}>
+        <meshStandardMaterial color={color} />
+      </mesh>
+    </group>
   );
 }
 
@@ -55,6 +80,7 @@ export function View3D() {
   const { plan, selection, select, loadCount } = useStore();
   const [mode, setMode] = useState<'orbit' | 'walk'>('orbit');
   const boxes = useMemo(() => wallBoxes(plan), [plan]);
+  const wallColor = new Map(plan.walls.map(w => [w.id, w.color ?? DEFAULT_WALL_COLOR]));
   const { min, max } = planBounds(plan);
   const center: [number, number, number] = [(min.x + max.x) / 2, 0, (min.y + max.y) / 2];
   const size = Math.max(max.x - min.x, max.y - min.y, 4);
@@ -87,18 +113,18 @@ export function View3D() {
         {plan.rooms.map(r => <Floor key={r.id} room={r} selected={isSel('room', r.id)} />)}
 
         {boxes.map((b, i) => (
-          <BoxMesh key={i} b={b} color={isSel('wall', b.wallId) ? '#7aa7f7' : '#f4f1ea'} onClick={() => select({ type: 'wall', id: b.wallId })} />
+          <BoxMesh key={i} b={b} color={isSel('wall', b.wallId) ? '#7aa7f7' : wallColor.get(b.wallId)!} onClick={() => select({ type: 'wall', id: b.wallId })} />
         ))}
         {glass.map((b, i) => <BoxMesh key={`g${i}`} b={b} color="#9fd3ff" opacity={0.35} />)}
 
         {plan.furniture.map(f => {
-          const c = byId(f.catalogId);
-          return (
-            <BoxMesh key={f.id}
-              b={{ position: [f.pos.x, c.h / 2, f.pos.y], size: [c.w, c.h, c.d], rotationY: (-f.rotation * Math.PI) / 180 }}
-              color={isSel('furniture', f.id) ? '#7aa7f7' : c.color}
-              onClick={() => select({ type: 'furniture', id: f.id })} />
-          );
+          const c = itemOf(f);
+          const color = isSel('furniture', f.id) ? '#7aa7f7' : c.color;
+          const rotationY = (-f.rotation * Math.PI) / 180;
+          const onClick = () => select({ type: 'furniture', id: f.id });
+          return c.r > 0
+            ? <RoundedMesh key={f.id} w={c.w} d={c.d} h={c.h} r={c.r} position={[f.pos.x, 0, f.pos.y]} rotationY={rotationY} color={color} onClick={onClick} />
+            : <BoxMesh key={f.id} b={{ position: [f.pos.x, c.h / 2, f.pos.y], size: [c.w, c.h, c.d], rotationY }} color={color} onClick={onClick} />;
         })}
 
         {mode === 'orbit' ? <OrbitControls target={center} maxPolarAngle={Math.PI / 2 - 0.05} makeDefault /> : <WalkControls />}
