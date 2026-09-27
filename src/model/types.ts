@@ -14,6 +14,7 @@ export interface Furniture {
   rotation: number; // degrees
   w?: number; d?: number; h?: number; // size overrides; catalog size when unset
   radius?: number; // plan-view corner radius in metres
+  color?: string; // overrides the catalog colour
 }
 
 export interface Plan {

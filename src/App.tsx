@@ -331,6 +331,8 @@ function Properties() {
         <Num label="Width (m)" value={c.w} min={0.05} onChange={v => set({ w: v })} />
         <Num label="Depth (m)" value={c.d} min={0.05} onChange={v => set({ d: v })} />
         <Num label="Height (m)" value={c.h} min={0.05} onChange={v => set({ h: v })} />
+        <ColorField key={f.id} value={c.color} onChange={color => patchItem('furniture', f.id, { color })} />
+        {f.color && <button onClick={() => set({ color: undefined })}>Reset colour</button>}
         <label className="field" title="All the way right makes the ends fully round (a circle for square items)">
           <span>Corner radius <small>{Math.round(c.r * 100)} cm</small></span>
           <input type="range" min={0} max={Math.min(c.w, c.d) / 2} step={0.01} value={c.r}
