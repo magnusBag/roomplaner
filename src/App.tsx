@@ -21,7 +21,7 @@ const TOOLS: { id: Tool; label: string; key: string }[] = [
   { id: 'measure', label: 'Measure', key: 'm' },
 ];
 const HINTS: Record<Tool, string> = {
-  select: 'Drag items to move · drag wall ends to reshape · Del deletes · R rotates furniture · drag empty space to pan',
+  select: 'Drag items to move · drag wall ends to reshape · Del deletes · hold R + drag rotates furniture · drag empty space to pan',
   wall: 'Click to start, click to add segments · double-click or Esc to finish · Alt disables snapping',
   door: 'Click on a wall to add a door',
   window: 'Click on a wall to add a window',
@@ -69,11 +69,6 @@ export default function App() {
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); st.redo(); return; }
       if (mod) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && st.selection) { st.commit(removeSelection(st.selection)); st.select(null); return; }
-      if (e.key === 'r' && st.selection?.type === 'furniture') {
-        const f = st.plan.furniture.find(x => x.id === st.selection!.id)!;
-        st.commit(patchItem('furniture', f.id, { rotation: (f.rotation + (e.shiftKey ? -90 : 90) + 360) % 360 }));
-        return;
-      }
       if (e.key === 'Escape') { st.setTool('select'); return; }
       const t = TOOLS.find(t => t.key === e.key);
       if (t && layout !== '3d') st.setTool(t.id);
@@ -326,7 +321,7 @@ function Properties() {
         <Num label="Rotation (°)" value={f.rotation} step={15} onChange={v => set({ rotation: ((v % 360) + 360) % 360 })} />
         <Num label="X (m)" value={f.pos.x} onChange={v => set({ pos: { ...f.pos, x: v } })} />
         <Num label="Y (m)" value={f.pos.y} onChange={v => set({ pos: { ...f.pos, y: v } })} />
-        <button onClick={() => set({ rotation: (f.rotation + 90) % 360 })}>Rotate 90° (R)</button>
+        <button onClick={() => set({ rotation: (f.rotation + 90) % 360 })}>Rotate 90°</button>
         {del}
       </section>
     );

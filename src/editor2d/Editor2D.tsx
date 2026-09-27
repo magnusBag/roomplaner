@@ -11,6 +11,7 @@ export const svgRef: { current: SVGSVGElement | null } = { current: null };
 type Drag =
   | { kind: 'pan'; start: Vec2; tx: number; ty: number }
   | { kind: 'furniture'; id: string; grab: Vec2 }
+  | { kind: 'rotate'; id: string; center: Vec2; startAngle: number; startRot: number }
   | { kind: 'endpoint'; targets: { id: string; end: 'a' | 'b' }[]; anchor: Vec2 }
   | { kind: 'wall'; start: Vec2; orig: Plan; ends: { id: string; end: 'a' | 'b' }[] }
   | { kind: 'opening'; id: string; wall: Wall; grab: number };
@@ -18,6 +19,8 @@ type Drag =
 const SNAP_PX = 12;
 const ANGLE_SNAP = Math.tan((5 * Math.PI) / 180);
 const fmt = (m: number) => `${m.toFixed(2)} m`;
+/** Clockwise-positive angle in degrees (y-down), matching SVG rotate(). */
+const angleDeg = (c: Vec2, p: Vec2) => (Math.atan2(p.y - c.y, p.x - c.x) * 180) / Math.PI;
 
 export function Editor2D() {
   const { plan, tool, selection, loadCount, select, commit, begin, live } = useStore();
@@ -25,6 +28,7 @@ export function Editor2D() {
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
   const drag = useRef<Drag | null>(null);
+  const rHeld = useRef(false);
   const el = useRef<SVGSVGElement>(null);
 
   const fit = () => {
@@ -59,9 +63,18 @@ export function Editor2D() {
       if (e.key === 'Escape') setDraft([]);
       if (e.key === 'Enter' && tool === 'room') closeRoom();
       if (e.key === 'f') fit();
+      if (e.key === 'r') rHeld.current = true;
     };
+    const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'r') rHeld.current = false; };
+    const onBlur = () => { rHeld.current = false; };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
   });
 
   const toWorld = (e: { clientX: number; clientY: number }): Vec2 => {
@@ -159,6 +172,11 @@ export function Editor2D() {
     if (!d) return;
     if (d.kind === 'pan') setView(v => ({ ...v, tx: d.tx + e.clientX - d.start.x, ty: d.ty + e.clientY - d.start.y }));
     else if (d.kind === 'furniture') live(patchItem('furniture', d.id, { pos: sub(w, d.grab) }));
+    else if (d.kind === 'rotate') {
+      let r = d.startRot + angleDeg(d.center, w) - d.startAngle;
+      if (!e.altKey) r = Math.round(r / 15) * 15; // Alt for free rotation
+      live(patchItem('furniture', d.id, { rotation: ((r % 360) + 360) % 360 }));
+    }
     else if (d.kind === 'endpoint') {
       const p = snap(w, e, d.anchor, d.targets);
       live(pl => d.targets.reduce((acc, t) => patchItem('walls', t.id, { [t.end]: p })(acc), pl));
@@ -290,7 +308,9 @@ export function Editor2D() {
             <g key={f.id} transform={`translate(${f.pos.x} ${f.pos.y}) rotate(${f.rotation})`}
               onPointerDown={grab((e, p) => {
                 select({ type: 'furniture', id: f.id });
-                startDrag(e, { kind: 'furniture', id: f.id, grab: sub(p, f.pos) });
+                startDrag(e, rHeld.current
+                  ? { kind: 'rotate', id: f.id, center: f.pos, startAngle: angleDeg(f.pos, p), startRot: f.rotation }
+                  : { kind: 'furniture', id: f.id, grab: sub(p, f.pos) });
               })}>
               <rect x={-c.w / 2} y={-c.d / 2} width={c.w} height={c.d} fill={c.color} fillOpacity={0.85}
                 stroke={on ? '#2563eb' : '#333'} strokeWidth={px(on ? 2.5 : 1)} />

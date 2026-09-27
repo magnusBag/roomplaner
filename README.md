@@ -28,7 +28,7 @@ Import pipeline (pure functions, tested against `fixtures/sample.dxf`):
 |---|---|
 | V W D N G M | Select, Wall, Door, Window, Room, Measure tools |
 | Del / Backspace | Delete selection |
-| R / Shift+R | Rotate furniture ±90° |
+| Hold R + drag furniture | Rotate (15° steps; add Alt for free rotation) |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo |
 | F | Fit plan to view |
 | Alt (while drawing or dragging) | Disable snapping |
