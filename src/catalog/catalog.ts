@@ -18,3 +18,9 @@ export const catalog: CatalogItem[] = [
 ];
 
 export const byId = (id: string) => catalog.find(c => c.id === id) ?? catalog[0];
+
+/** Catalog item with this placement's size overrides applied. */
+export const itemOf = (f: { catalogId: string; w?: number; d?: number; h?: number }) => {
+  const c = byId(f.catalogId);
+  return { ...c, w: f.w ?? c.w, d: f.d ?? c.d, h: f.h ?? c.h };
+};

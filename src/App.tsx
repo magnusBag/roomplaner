@@ -3,7 +3,7 @@ import { useStore, patchItem, removeSelection, type Tool } from './model/store';
 import { type Plan, type Wall, emptyPlan, uid, wallLength, area, scalePlan, add, mul, sub, dist, planBounds, DEFAULT_WALL_COLOR } from './model/types';
 import { redetectRooms } from './model/rooms';
 import { importDxf, inspectDxf } from './import/dxf';
-import { catalog, byId } from './catalog/catalog';
+import { catalog, itemOf } from './catalog/catalog';
 import { Editor2D, svgRef } from './editor2d/Editor2D';
 
 const View3D = lazy(() => import('./view3d/View3D').then(m => ({ default: m.View3D })));
@@ -21,7 +21,7 @@ const TOOLS: { id: Tool; label: string; key: string }[] = [
   { id: 'measure', label: 'Measure', key: 'm' },
 ];
 const HINTS: Record<Tool, string> = {
-  select: 'Drag items to move · drag wall ends to reshape · Del deletes · hold R + drag rotates furniture · drag empty space to pan',
+  select: 'Drag items to move · drag wall ends to reshape · Del deletes · hold R + drag rotates furniture · corner handle resizes · drag empty space to pan',
   wall: 'Click to start, click to add segments · double-click or Esc to finish · Alt disables snapping',
   door: 'Click on a wall to add a door',
   window: 'Click on a wall to add a window',
@@ -317,17 +317,21 @@ function Properties() {
   if (selection?.type === 'furniture') {
     const f = plan.furniture.find(x => x.id === selection.id);
     if (!f) return null;
-    const c = byId(f.catalogId);
+    const c = itemOf(f);
     const set = (patch: Partial<typeof f>) => commit(patchItem('furniture', f.id, patch));
+    const resized = f.w != null || f.d != null || f.h != null;
     return (
       <section>
         <h3>{c.name}</h3>
-        <p className="hint">{c.w} × {c.d} × {c.h} m</p>
         <label className="field"><span>Item</span>
-          <select value={f.catalogId} onChange={e => set({ catalogId: e.target.value })}>
+          <select value={f.catalogId} onChange={e => set({ catalogId: e.target.value, w: undefined, d: undefined, h: undefined })}>
             {catalog.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
           </select>
         </label>
+        <Num label="Width (m)" value={c.w} min={0.05} onChange={v => set({ w: v })} />
+        <Num label="Depth (m)" value={c.d} min={0.05} onChange={v => set({ d: v })} />
+        <Num label="Height (m)" value={c.h} min={0.05} onChange={v => set({ h: v })} />
+        {resized && <button onClick={() => set({ w: undefined, d: undefined, h: undefined })}>Reset to catalog size</button>}
         <Num label="Rotation (°)" value={f.rotation} step={15} onChange={v => set({ rotation: ((v % 360) + 360) % 360 })} />
         <Num label="X (m)" value={f.pos.x} onChange={v => set({ pos: { ...f.pos, x: v } })} />
         <Num label="Y (m)" value={f.pos.y} onChange={v => set({ pos: { ...f.pos, y: v } })} />

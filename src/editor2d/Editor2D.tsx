@@ -3,7 +3,7 @@ import { useStore, patchItem } from '../model/store';
 import {
   type Vec2, type Wall, type Plan, uid, add, sub, mul, dist, project, wallLength, area, centroid, planBounds,
 } from '../model/types';
-import { byId } from '../catalog/catalog';
+import { itemOf } from '../catalog/catalog';
 
 /** The live SVG element, for PNG/SVG export. */
 export const svgRef: { current: SVGSVGElement | null } = { current: null };
@@ -12,6 +12,7 @@ type Drag =
   | { kind: 'pan'; start: Vec2; tx: number; ty: number }
   | { kind: 'furniture'; id: string; grab: Vec2 }
   | { kind: 'rotate'; id: string; center: Vec2; startAngle: number; startRot: number }
+  | { kind: 'resize'; id: string; center: Vec2; rotation: number }
   | { kind: 'endpoint'; targets: { id: string; end: 'a' | 'b' }[]; anchor: Vec2 }
   | { kind: 'wall'; start: Vec2; orig: Plan; ends: { id: string; end: 'a' | 'b' }[] }
   | { kind: 'opening'; id: string; wall: Wall; grab: number };
@@ -176,6 +177,12 @@ export function Editor2D() {
       let r = d.startRot + angleDeg(d.center, w) - d.startAngle;
       if (!e.altKey) r = Math.round(r / 15) * 15; // Alt for free rotation
       live(patchItem('furniture', d.id, { rotation: ((r % 360) + 360) % 360 }));
+    } else if (d.kind === 'resize') {
+      // pointer in the item's local (unrotated) frame; the centre stays put, so size = 2 × offset
+      const a = (d.rotation * Math.PI) / 180, v = sub(w, d.center);
+      const lx = v.x * Math.cos(a) + v.y * Math.sin(a), ly = -v.x * Math.sin(a) + v.y * Math.cos(a);
+      const q = (n: number) => Math.max(0.1, e.altKey ? n : Math.round(n / 0.05) * 0.05); // 5 cm steps; Alt for free
+      live(patchItem('furniture', d.id, { w: q(2 * Math.abs(lx)), d: q(2 * Math.abs(ly)) }));
     }
     else if (d.kind === 'endpoint') {
       const p = snap(w, e, d.anchor, d.targets);
@@ -302,7 +309,7 @@ export function Editor2D() {
         })}
 
         {plan.furniture.map(f => {
-          const c = byId(f.catalogId);
+          const c = itemOf(f);
           const on = sel('furniture', f.id);
           return (
             <g key={f.id} transform={`translate(${f.pos.x} ${f.pos.y}) rotate(${f.rotation})`}
@@ -317,6 +324,11 @@ export function Editor2D() {
               {/* front edge marker */}
               <line x1={-c.w / 2} y1={c.d / 2} x2={c.w / 2} y2={c.d / 2} stroke="#000" strokeWidth={px(2.5)} />
               <text y={px(4)} fontSize={px(10)} textAnchor="middle" fill="#111" fontFamily="sans-serif" pointerEvents="none">{c.name}</text>
+              {on && (
+                <rect data-noexport x={c.w / 2 - px(5)} y={c.d / 2 - px(5)} width={px(10)} height={px(10)}
+                  fill="#fff" stroke="#2563eb" strokeWidth={px(2)} style={{ cursor: 'nwse-resize' }}
+                  onPointerDown={grab(e => startDrag(e, { kind: 'resize', id: f.id, center: f.pos, rotation: f.rotation }))} />
+              )}
             </g>
           );
         })}

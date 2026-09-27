@@ -4,7 +4,7 @@ import { OrbitControls, PointerLockControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useStore } from '../model/store';
 import { wallBoxes, pieceToBox, type Box } from './meshes';
-import { byId } from '../catalog/catalog';
+import { itemOf } from '../catalog/catalog';
 import { type Room, planBounds, DEFAULT_WALL_COLOR } from '../model/types';
 
 function BoxMesh({ b, color, opacity = 1, onClick }: { b: Box; color: string; opacity?: number; onClick?: () => void }) {
@@ -93,7 +93,7 @@ export function View3D() {
         {glass.map((b, i) => <BoxMesh key={`g${i}`} b={b} color="#9fd3ff" opacity={0.35} />)}
 
         {plan.furniture.map(f => {
-          const c = byId(f.catalogId);
+          const c = itemOf(f);
           return (
             <BoxMesh key={f.id}
               b={{ position: [f.pos.x, c.h / 2, f.pos.y], size: [c.w, c.h, c.d], rotationY: (-f.rotation * Math.PI) / 180 }}

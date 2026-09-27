@@ -9,7 +9,11 @@ export interface Opening {
   flip?: boolean; // door swings to the other side of the wall
 }
 export interface Room { id: string; name: string; polygon: Vec2[]; color?: string }
-export interface Furniture { id: string; catalogId: string; pos: Vec2; rotation: number } // rotation in degrees
+export interface Furniture {
+  id: string; catalogId: string; pos: Vec2;
+  rotation: number; // degrees
+  w?: number; d?: number; h?: number; // size overrides; catalog size when unset
+}
 
 export interface Plan {
   walls: Wall[];
