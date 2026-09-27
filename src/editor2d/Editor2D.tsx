@@ -319,10 +319,10 @@ export function Editor2D() {
                   ? { kind: 'rotate', id: f.id, center: f.pos, startAngle: angleDeg(f.pos, p), startRot: f.rotation }
                   : { kind: 'furniture', id: f.id, grab: sub(p, f.pos) });
               })}>
-              <rect x={-c.w / 2} y={-c.d / 2} width={c.w} height={c.d} fill={c.color} fillOpacity={0.85}
+              <rect x={-c.w / 2} y={-c.d / 2} width={c.w} height={c.d} rx={c.r} fill={c.color} fillOpacity={0.85}
                 stroke={on ? '#2563eb' : '#333'} strokeWidth={px(on ? 2.5 : 1)} />
               {/* front edge marker */}
-              <line x1={-c.w / 2} y1={c.d / 2} x2={c.w / 2} y2={c.d / 2} stroke="#000" strokeWidth={px(2.5)} />
+              <line x1={-c.w / 2 + c.r} y1={c.d / 2} x2={c.w / 2 - c.r} y2={c.d / 2} stroke="#000" strokeWidth={px(2.5)} />
               <text y={px(4)} fontSize={px(10)} textAnchor="middle" fill="#111" fontFamily="sans-serif" pointerEvents="none">{c.name}</text>
               {on && (
                 <rect data-noexport x={c.w / 2 - px(5)} y={c.d / 2 - px(5)} width={px(10)} height={px(10)}

@@ -13,6 +13,7 @@ export interface Furniture {
   id: string; catalogId: string; pos: Vec2;
   rotation: number; // degrees
   w?: number; d?: number; h?: number; // size overrides; catalog size when unset
+  radius?: number; // plan-view corner radius in metres
 }
 
 export interface Plan {

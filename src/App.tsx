@@ -256,7 +256,7 @@ function ColorField({ value, onChange }: { value: string; onChange: (c: string) 
 }
 
 function Properties() {
-  const { plan, selection, commit, select } = useStore();
+  const { plan, selection, commit, select, begin, live } = useStore();
   const del = selection && <button className="danger" onClick={() => { commit(removeSelection(selection)); select(null); }}>Delete</button>;
 
   if (selection?.type === 'wall') {
@@ -324,13 +324,18 @@ function Properties() {
       <section>
         <h3>{c.name}</h3>
         <label className="field"><span>Item</span>
-          <select value={f.catalogId} onChange={e => set({ catalogId: e.target.value, w: undefined, d: undefined, h: undefined })}>
+          <select value={f.catalogId} onChange={e => set({ catalogId: e.target.value, w: undefined, d: undefined, h: undefined, radius: undefined })}>
             {catalog.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
           </select>
         </label>
         <Num label="Width (m)" value={c.w} min={0.05} onChange={v => set({ w: v })} />
         <Num label="Depth (m)" value={c.d} min={0.05} onChange={v => set({ d: v })} />
         <Num label="Height (m)" value={c.h} min={0.05} onChange={v => set({ h: v })} />
+        <label className="field" title="All the way right makes the ends fully round (a circle for square items)">
+          <span>Corner radius <small>{Math.round(c.r * 100)} cm</small></span>
+          <input type="range" min={0} max={Math.min(c.w, c.d) / 2} step={0.01} value={c.r}
+            onFocus={begin} onChange={e => live(patchItem('furniture', f.id, { radius: +e.target.value }))} />
+        </label>
         {resized && <button onClick={() => set({ w: undefined, d: undefined, h: undefined })}>Reset to catalog size</button>}
         <Num label="Rotation (°)" value={f.rotation} step={15} onChange={v => set({ rotation: ((v % 360) + 360) % 360 })} />
         <Num label="X (m)" value={f.pos.x} onChange={v => set({ pos: { ...f.pos, x: v } })} />

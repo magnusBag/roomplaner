@@ -17,6 +17,31 @@ function BoxMesh({ b, color, opacity = 1, onClick }: { b: Box; color: string; op
   );
 }
 
+/** Box with rounded vertical edges: a rounded rectangle extruded upwards (matches the 2D outline). */
+function RoundedMesh({ w, d, h, r, color, onClick, ...t }: {
+  w: number; d: number; h: number; r: number; color: string; onClick: () => void;
+  position: [number, number, number]; rotationY: number;
+}) {
+  const geom = useMemo(() => {
+    const x = w / 2 - r, y = d / 2 - r, s = new THREE.Shape();
+    s.moveTo(-x, -d / 2);
+    s.lineTo(x, -d / 2); s.absarc(x, -y, r, -Math.PI / 2, 0, false);
+    s.lineTo(w / 2, y); s.absarc(x, y, r, 0, Math.PI / 2, false);
+    s.lineTo(-x, d / 2); s.absarc(-x, y, r, Math.PI / 2, Math.PI, false);
+    s.lineTo(-w / 2, -y); s.absarc(-x, -y, r, Math.PI, Math.PI * 1.5, false);
+    return new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 12 });
+  }, [w, d, h, r]);
+  return (
+    <group position={t.position} rotation={[0, t.rotationY, 0]}>
+      {/* extrusion runs along +Z; tip it up so it runs along +Y */}
+      <mesh geometry={geom} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow
+        onClick={e => { e.stopPropagation(); onClick(); }}>
+        <meshStandardMaterial color={color} />
+      </mesh>
+    </group>
+  );
+}
+
 function Floor({ room, selected }: { room: Room; selected: boolean }) {
   // Shape lives in XY; rotating -90° about X maps (x, -y) onto plan (x, z=y).
   const geom = useMemo(() => new THREE.ShapeGeometry(new THREE.Shape(room.polygon.map(p => new THREE.Vector2(p.x, -p.y)))), [room.polygon]);
@@ -94,12 +119,12 @@ export function View3D() {
 
         {plan.furniture.map(f => {
           const c = itemOf(f);
-          return (
-            <BoxMesh key={f.id}
-              b={{ position: [f.pos.x, c.h / 2, f.pos.y], size: [c.w, c.h, c.d], rotationY: (-f.rotation * Math.PI) / 180 }}
-              color={isSel('furniture', f.id) ? '#7aa7f7' : c.color}
-              onClick={() => select({ type: 'furniture', id: f.id })} />
-          );
+          const color = isSel('furniture', f.id) ? '#7aa7f7' : c.color;
+          const rotationY = (-f.rotation * Math.PI) / 180;
+          const onClick = () => select({ type: 'furniture', id: f.id });
+          return c.r > 0
+            ? <RoundedMesh key={f.id} w={c.w} d={c.d} h={c.h} r={c.r} position={[f.pos.x, 0, f.pos.y]} rotationY={rotationY} color={color} onClick={onClick} />
+            : <BoxMesh key={f.id} b={{ position: [f.pos.x, c.h / 2, f.pos.y], size: [c.w, c.h, c.d], rotationY }} color={color} onClick={onClick} />;
         })}
 
         {mode === 'orbit' ? <OrbitControls target={center} maxPolarAngle={Math.PI / 2 - 0.05} makeDefault /> : <WalkControls />}
